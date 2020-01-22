@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use function foo\func;
+use Illuminate\Support\Facades\Storage;
 
 define('EOL', "<br><br>");
 define('LB', "\n");
@@ -29,7 +30,7 @@ class DeadCodeAnalyzer
      * the folder and files which will be ignored for dead code checking
      */
     protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Middleware', 'Providers', 'Resources');
-    protected $dirBlackListsToAnalyze = array('Console', 'Exceptions', 'Middleware', 'Providers', 'Resources');
+    protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
     protected $fileBlackLists = array('Helper', 'Kernel');
 
     /**
@@ -56,15 +57,16 @@ class DeadCodeAnalyzer
     {
         $out = [];
         $results = scandir($path);
-        $blackLists = ($flag != "") ? $this->dirBlackListsToAnalyze : $this->dirBlackLists;
+        $blackLists = ($flag == "analyze") ? $this->dirBlackListsToAnalyze : $this->dirBlackLists;
         foreach ($results as $result) {
             if ($result === '.' or $result === '..') continue;
+
             $filename = $path . DIRECTORY_SEPARATOR . $result;
             if (is_dir($filename)) {
                 if (in_array($result, $blackLists)) {
                     continue;
                 }
-                $out = array_merge($out, $this->getAllAppDirectoryFiles($filename));
+                $out = array_merge($out, $this->getAllAppDirectoryFiles($filename, $flag));
             } else {
                 $ext = strtolower(substr($filename, -3));
                 if ($ext === 'php')
@@ -166,6 +168,7 @@ class DeadCodeAnalyzer
     public function getDeadCodes()
     {
         $allFiles = $this->getAllAppDirectoryFiles(app_path(), 'analyze');
+        Storage::disk('local')->put('analyzefile.txt', $allFiles);
         $this->inspectFiles($allFiles);
     }
 
@@ -180,12 +183,18 @@ class DeadCodeAnalyzer
     {
         $this->namespaceLists = [];
         for ($item = 0; $item < $totalToken; $item++) {
+            $resourceFlag = 0;
             if ($tokens[$item] == "use" && $tokens[$item + 1] instanceof \PHP_Token_WHITESPACE &&
                 ($tokens[$item + 2] == "App" || ($tokens[$item + 2] == "\\" && $tokens[$item + 3] == "App"))) { // only app directory namespace.
                 $namespaceString = $replacedNamespaceString = "";
                 for ($itemCounter = $item + 2; $tokens[$itemCounter] != ";"; $itemCounter++) {
                     // wont store first separator in namespace AND no space will be concat in the namespace path
                     if (($itemCounter == $item + 2 && $tokens[$itemCounter] == "\\") || $tokens[$itemCounter] == " ") continue;
+
+                    if ($tokens[$itemCounter] == 'Resources') {
+                        $resourceFlag = 1;
+                        break;
+                    }
                     if ($tokens[$itemCounter] == "as") {
                         $replacedNamespaceString .= $tokens[$itemCounter + 2];
                         break;
@@ -194,11 +203,13 @@ class DeadCodeAnalyzer
                 }
 
                 $item = $itemCounter;
-                $class = new \ReflectionClass($namespaceString);
-                $this->namespaceLists [] = [
-                    'namespace' => $namespaceString,
-                    'className' => (strlen($replacedNamespaceString) > 0) ? $replacedNamespaceString : $class->getShortName()
-                ];
+                if(!$resourceFlag && class_exists($namespaceString)) {
+                    $class = new \ReflectionClass($namespaceString);
+                    $this->namespaceLists [] = [
+                        'namespace' => $namespaceString,
+                        'className' => (strlen($replacedNamespaceString) > 0) ? $replacedNamespaceString : $class->getShortName()
+                    ];
+                }
             }
             // if class starts then there will be no new namespace to add
             if ($tokens[$item] == "class") break;
@@ -272,40 +283,42 @@ class DeadCodeAnalyzer
         return $classToCheck;
     }
 
-    function updateMethodFlag($namespace, $methodName)
+    function updateMethodFlag($namespace, $methodName, $check = '')
     {
         // if class / namespace is in App directory: it is already chec because this->checkfiles only store none other than app directory files
-        $class = new \ReflectionClass($namespace);
-        $className = $class->getShortName();
-        $flag = $thisClass = $parentClassCheck = 0;
-        $parentNamespace = "";
-        foreach ($this->checkFiles['classes'] as &$class) {
-            if ($flag) break;
-            if ($namespace == $class["namespace"] && $className == $class["className"]) {
-                foreach ($class["methods"] as &$method) {
-                    if ($method["name"] == $methodName && $method["flag"] == 0) {
-                        $flag = 1;
-                        $thisClass = 1;
-                        $method["flag"] = 1;
-                        // return namespace and method name which flag is set to 1; so that from classesTocheck make empty
-                        break;
+        if (class_exists($namespace)) {
+            $class = new \ReflectionClass($namespace);
+            $className = $class->getShortName();
+            $flag = $thisClass = $parentClassCheck = 0;
+            $parentNamespace = "";
+            foreach ($this->checkFiles['classes'] as &$class) {
+                if ($flag) break;
+                if ($namespace == $class["namespace"] && $className == $class["className"]) {
+                    foreach ($class["methods"] as &$method) {
+                        if ($method["name"] == $methodName && $method["flag"] == 0) {
+                            $flag = 1;
+                            $thisClass = 1;
+                            $method["flag"] = 1;
+                            // return namespace and method name which flag is set to 1; so that from classesTocheck make empty
+                            break;
+                        }
                     }
                 }
             }
-        }
-        if (!$thisClass) {
-            // if this class is still = 0; that means method is not in this class,
-            // either in parent, or in interfaces
-            foreach ($this->checkFiles['classes'] as &$file) {
-                if ($namespace == $file["namespace"] && $file["parentClasses"]) { // && $className == $file["className"]
-                    foreach ($file["parentClasses"] as $parent) {
-                        $parentNamespace .= $parent["parentClassNamespace"];
+            if (!$thisClass) {
+                // if this class is still = 0; that means method is not in this class,
+                // either in parent, or in interfaces
+                foreach ($this->checkFiles['classes'] as &$file) {
+                    if ($namespace == $file["namespace"] && $file["parentClasses"]) { // && $className == $file["className"]
+                        foreach ($file["parentClasses"] as $parent) {
+                            $parentNamespace .= $parent["parentClassNamespace"];
+                        }
+                        $this->updateMethodFlag($parentNamespace, $methodName);
+                        $thisClass = 1;
+                        break;
                     }
-                    $this->updateMethodFlag($parentNamespace, $methodName, "recursive call");
-                    $thisClass = 1;
-                    break;
-                }
 
+                }
             }
         }
     }
@@ -314,11 +327,11 @@ class DeadCodeAnalyzer
     {
 
         if ($checker == 'this') {
-            $this->updateMethodFlag($objectOrNamespace, $methodName, "backtrack-this");
+            $this->updateMethodFlag($objectOrNamespace, $methodName);
         } else {
             foreach ($classArrayToCheck as &$class) {
                 if ($class['object'] == $objectOrNamespace) {
-                    $this->updateMethodFlag($class['namespace'], $methodName, "backtrack-class-object");
+                    $this->updateMethodFlag($class['namespace'], $methodName);
                 }
             }
         }
@@ -351,6 +364,13 @@ class DeadCodeAnalyzer
         foreach ($files as $filePath) {
             $namespace = $this->getNameSpace($filePath);
             $code = file_get_contents($filePath);
+            /* $tokenss = token_get_all($code);
+
+             foreach ($tokenss as $token) {
+                 if (is_array($token)) {
+                     echo "Line {$token[2]}: ", token_name($token[0]), " ('{$token[1]}')", EOL;
+                 }
+             }*/
             $tokens = new \PHP_Token_Stream($code);
             $totalToken = count($tokens);
             $classesToCheck = [];
@@ -364,6 +384,7 @@ class DeadCodeAnalyzer
              * 5. $this keyword
              */
             for ($t = 0; $t < $totalToken; $t++) {
+
                 if ($tokens[$t] == "__construct") { // from constructor using DI get class name/s and object name/s
                     $classesCheck [] = $this->getFromDI($tokens, $t);
                     foreach ($classesCheck as $classes) {
@@ -377,27 +398,30 @@ class DeadCodeAnalyzer
                     }
 
                     $t = $this->constructorEndTokenPosition;
-                    
+
                 }
                 // self method call
                 if ($tokens[$t] == "self" && $tokens[$t + 1] == "::") {
-                    $this->updateMethodFlag($namespace, $tokens[$t + 2], "self method");
+                    $this->updateMethodFlag($namespace, $tokens[$t + 2]);
                     $t += 2;
                     continue;
                 }
 
                 // static method call
-                if ($tokens[$t] == "::" && $tokens[$t - 1] != "self" &&
-                    $tokens[$t + 1] instanceof \PHP_Token_VARIABLE && $tokens[$t + 2] == "(") {
+                // && $tokens[$t + 1] instanceof \PHP_Token_VARIABLE
+                if ($tokens[$t] == "::" && $tokens[$t - 1] != "self"
+                    && $tokens[$t + 1] instanceof \PHP_Token_STRING
+                    && $tokens[$t + 2] == "(") {
                     // here classname needs
                     $nameSpace = ($tokens[$t - 1] == 'static') ? $namespace : "";
                     if ($nameSpace == "") {
                         $nameSpaceResult = $this->checkNamespace($tokens[$t - 1]);
                         if ($nameSpaceResult["check"])
-                            $nameSpace = $nameSpaceResult->namespace;
+                            $nameSpace = $nameSpaceResult['namespace'];
                     }
-                    if ($nameSpace != "")
-                        $this->updateMethodFlag($nameSpace, $tokens[$t + 1], "from-static");
+                    if ($nameSpace != "") {
+                        $this->updateMethodFlag($nameSpace, $tokens[$t + 1]);
+                    }
                 }
 
                 // new object create check
@@ -479,9 +503,9 @@ class DeadCodeAnalyzer
                     $out .= $name['name'];
                     if ($cc < count($data) - 1)
                         $out .= ", ";
-                    else $out.=LB;
+                    else $out .= LB;
                 }
-                $out .= $deadMethodWeightText . number_format((($perClassDeadMethodCounter * 100) / $totalMethodPerClass), 2) .'%'. NL;
+                $out .= $deadMethodWeightText . number_format((($perClassDeadMethodCounter * 100) / $totalMethodPerClass), 2) . '%' . NL;
                 $data = [];
             }
         }
@@ -502,7 +526,7 @@ class DeadCodeAnalyzer
         return [
             'total' => $counter,
             'dead' => $deadMethodCounter,
-            'weight' => number_format((($deadMethodCounter * 100) / $counter), 2)."%",
+            'weight' => number_format((($deadMethodCounter * 100) / $counter), 2) . "%",
         ];
     }
 

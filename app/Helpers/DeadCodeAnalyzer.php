@@ -60,7 +60,6 @@ class DeadCodeAnalyzer
         $blackLists = ($flag == "analyze") ? $this->dirBlackListsToAnalyze : $this->dirBlackLists;
         foreach ($results as $result) {
             if ($result === '.' or $result === '..') continue;
-
             $filename = $path . DIRECTORY_SEPARATOR . $result;
             if (is_dir($filename)) {
                 if (in_array($result, $blackLists)) {
@@ -104,7 +103,6 @@ class DeadCodeAnalyzer
                     'name' => $method->name,
                     'flag' => 0
                 ];
-                /*    echo "Fn : " . $method->name . "-->\t\t";    echo "Fn class: " . $method->class . "<br>\n\n";*/
             }
         }
 
@@ -364,13 +362,6 @@ class DeadCodeAnalyzer
         foreach ($files as $filePath) {
             $namespace = $this->getNameSpace($filePath);
             $code = file_get_contents($filePath);
-            /* $tokenss = token_get_all($code);
-
-             foreach ($tokenss as $token) {
-                 if (is_array($token)) {
-                     echo "Line {$token[2]}: ", token_name($token[0]), " ('{$token[1]}')", EOL;
-                 }
-             }*/
             $tokens = new \PHP_Token_Stream($code);
             $totalToken = count($tokens);
             $classesToCheck = [];
@@ -425,17 +416,21 @@ class DeadCodeAnalyzer
                 }
 
                 // new object create check
-                if ($tokens[$t] == "new" && $tokens[$t + 1] instanceof \PHP_Token_STRING && $tokens[$t + 2] == "(") {
-                    $variable = $t;
-                    while (!($tokens[$variable] instanceof \PHP_Token_VARIABLE)) {
-                        $variable--;
+                if ($tokens[$t] == "new" && $tokens[$t + 2] instanceof \PHP_Token_STRING && $tokens[$t + 3] == "(") {
+                    if($tokens[$t-1] == '=' || ($tokens[$t-1] instanceof \PHP_Token_WHITESPACE && $tokens[$t-2] == '='))
+                    {
+                        $variable = $t;
+                        while (!($tokens[$variable] instanceof \PHP_Token_VARIABLE)) {
+                            $variable--;
+                        }
+                        $c = $this->getRealClassName($tokens[$t + 2]); //  If any class namespace is replaces with as keyword, we can get the real class name and namespace from here
+                        $classesToCheck [] = [
+                            "namespace" => $c["namespace"],
+                            "className" => $c["className"],
+                            "object" => $tokens[$variable]
+                        ];
                     }
-                    $c = $this->getRealClassName($tokens[$t + 1]); //  If any class namespace is replaces with as keyword, we can get the real class name and namespace from here
-                    $classesToCheck [] = [
-                        "namespace" => $c["namespace"],
-                        "className" => $c["className"],
-                        "object" => $tokens[$variable]
-                    ];
+
                 }
 
                 // now for backtrack method to method flag check the $classesToCheck array
@@ -461,7 +456,7 @@ class DeadCodeAnalyzer
                         $checker .= "this";
 
                     } // another local variable for new keyword, like $variable->method(
-                    elseif ($tokens[$t] != '$this' && $tokens[$t + 1] == '->' &&
+                    elseif ($tokens[$t] instanceof \PHP_Token_VARIABLE && $tokens[$t + 1] == '->' &&
                         $tokens[$t + 2] instanceof \PHP_Token_STRING && $tokens[$t + 3] == '('
                     ) {
                         $object .= $tokens[$t];

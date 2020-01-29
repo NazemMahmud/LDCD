@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use App\Helpers\DeadCodeAnalyzer;
+use App\Helpers\DeadCode\DeadCodeAnalyzer;
 use ReflectionClass;
 use ReflectionFunction;
 

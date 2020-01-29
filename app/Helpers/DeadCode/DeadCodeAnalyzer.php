@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Helpers;
+namespace App\Helpers\DeadCode;
 
 use function foo\func;
 use Illuminate\Support\Facades\Storage;
@@ -29,9 +29,9 @@ class DeadCodeAnalyzer
      * @var array
      * the folder and files which will be ignored for dead code checking
      */
-    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Middleware', 'Providers', 'Resources');
+    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Requests', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
     protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
-    protected $fileBlackLists = array('Helper', 'Kernel');
+    protected $fileBlackLists = array('Helpers', 'Kernel', 'LdcdController', 'DeadCodeAnalyzer');
 
     /**
      * Initiate Check File keys
@@ -68,8 +68,10 @@ class DeadCodeAnalyzer
                 $out = array_merge($out, $this->getAllAppDirectoryFiles($filename, $flag));
             } else {
                 $ext = strtolower(substr($filename, -3));
+
                 if ($ext === 'php')
                     $out[] = $filename;
+
             }
         }
         return $out;
@@ -92,19 +94,39 @@ class DeadCodeAnalyzer
 
     /**
      * Get Functions of a Class
+     * \ReflectionClass($namespace)
+     * namespace
+     * filepath
      */
-    public function getFunctions($class, $namespace)
+    public function getFunctions($class, $namespace, $filePath)
     {
-        $methods = $class->getMethods();
+        $code = file_get_contents($filePath);
+        $tokens = new \PHP_Token_Stream($code);
+        $totalToken = count($tokens);
         $functions = [];
-        foreach ($methods as $method) {
-            if ($method->class == $namespace && $method->name !== '__construct') {
-                $functions[] = [
-                    'name' => $method->name,
-                    'flag' => 0
-                ];
+
+        for ($tok = 0; $tok < $totalToken; $tok++) {
+            if ($tokens[$tok] == "__construct") {
+                continue;
+            }
+            if ($tokens[$tok] == "function") {
+                $position = $tok;
+                while ($position) {
+                    $position++;
+                    if ($tokens[$position] == ')')
+                        break;
+                    if ($tokens[$position] == '(') {
+                        $functions[] = [
+                            'name' => $tokens[$position - 1],
+                            'flag' => 0,
+                            'relationship' => 0
+                        ];
+                    }
+                }
+
             }
         }
+
 
         return $functions;
     }
@@ -113,8 +135,7 @@ class DeadCodeAnalyzer
     {
         $class = new \ReflectionClass($namespace);
         $this->parentClass($class);
-        $methods = $class->getMethods();
-        $functions = $this->getFunctions($class, $namespace);
+        $functions = $this->getFunctions($class, $namespace, $filePath);
         $this->checkFiles['classes'][] = [
             'namespace' => $namespace,
             'className' => $class->getShortName(),
@@ -159,14 +180,17 @@ class DeadCodeAnalyzer
             $namespace = $this->getNameSpace($filePath);
             if ($namespace)
                 $this->classStore($namespace, $filePath);
-
         }
     }
 
     public function getDeadCodes()
     {
         $allFiles = $this->getAllAppDirectoryFiles(app_path(), 'analyze');
-        Storage::disk('local')->put('analyzefile.txt', $allFiles);
+        $contents = "";
+        foreach ($allFiles as $file){
+            $contents.=$file."\n";
+        }
+        Storage::disk('local')->put('analyzefile.txt', $contents);
         $this->inspectFiles($allFiles);
     }
 
@@ -201,7 +225,7 @@ class DeadCodeAnalyzer
                 }
 
                 $item = $itemCounter;
-                if(!$resourceFlag && class_exists($namespaceString)) {
+                if (!$resourceFlag && class_exists($namespaceString)) {
                     $class = new \ReflectionClass($namespaceString);
                     $this->namespaceLists [] = [
                         'namespace' => $namespaceString,
@@ -417,8 +441,7 @@ class DeadCodeAnalyzer
 
                 // new object create check
                 if ($tokens[$t] == "new" && $tokens[$t + 2] instanceof \PHP_Token_STRING && $tokens[$t + 3] == "(") {
-                    if($tokens[$t-1] == '=' || ($tokens[$t-1] instanceof \PHP_Token_WHITESPACE && $tokens[$t-2] == '='))
-                    {
+                    if ($tokens[$t - 1] == '=' || ($tokens[$t - 1] instanceof \PHP_Token_WHITESPACE && $tokens[$t - 2] == '=')) {
                         $variable = $t;
                         while (!($tokens[$variable] instanceof \PHP_Token_VARIABLE)) {
                             $variable--;

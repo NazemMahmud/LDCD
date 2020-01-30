@@ -29,8 +29,8 @@ class DeadCodeAnalyzer
      * @var array
      * the folder and files which will be ignored for dead code checking
      */
-    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Requests', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
-    protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
+    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Requests', 'Middleware', 'Providers', 'Resources', 'DeadCode');
+    protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCode');
     protected $fileBlackLists = array('Helpers', 'Kernel', 'LdcdController', 'DeadCodeAnalyzer');
 
     /**
@@ -115,7 +115,7 @@ class DeadCodeAnalyzer
                     $position++;
                     if ($tokens[$position] == ')')
                         break;
-                    if ($tokens[$position] == '(') {
+                    if ($tokens[$position] == '(' || $tokens[$position] == '__construct') {
                         $functions[] = [
                             'name' => $tokens[$position - 1],
                             'flag' => 0,

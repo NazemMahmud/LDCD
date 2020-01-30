@@ -317,7 +317,7 @@ class DeadCodeAnalyzer
                 if ($flag) break;
                 if ($namespace == $class["namespace"] && $className == $class["className"]) {
                     foreach ($class["methods"] as &$method) {
-                        if ($method["name"] == $methodName && $method["flag"] == 0) {
+                        if (strcmp($method["name"], $methodName) == 0 && $method["flag"] == 0) {
                             $flag = 1;
                             $thisClass = 1;
                             $method["flag"] = 1;

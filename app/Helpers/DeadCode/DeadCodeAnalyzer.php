@@ -29,9 +29,9 @@ class DeadCodeAnalyzer
      * @var array
      * the folder and files which will be ignored for dead code checking
      */
-    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Requests', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
+    protected $dirBlackLists = array('Console', 'Exceptions', 'Controllers', 'Requests', 'Middleware', 'Providers', 'Resources', 'DeadCode', 'Mail');
     protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
-    protected $fileBlackLists = array('Helpers', 'Kernel', 'LdcdController', 'DeadCodeAnalyzer');
+//    protected $fileBlackLists = array('Helpers', 'Kernel', 'LdcdController', 'DeadCodeAnalyzer');
 
     /**
      * Initiate Check File keys
@@ -109,13 +109,13 @@ class DeadCodeAnalyzer
             if ($tokens[$tok] == "__construct") {
                 continue;
             }
-            if ($tokens[$tok] == "function") {
+            if ($tokens[$tok] == "function" && ($tokens[$tok+2] instanceof \PHP_Token_STRING || $tokens[$tok+1] != '(')) {
                 $position = $tok;
                 while ($position) {
                     $position++;
-                    if ($tokens[$position] == ')')
+                    if ($tokens[$position] == ')' || $tokens[$position] == '__construct')
                         break;
-                    if ($tokens[$position] == '(') {
+                    if ($tokens[$position] == '(' ) {
                         $functions[] = [
                             'name' => $tokens[$position - 1],
                             'flag' => 0,
@@ -309,6 +309,7 @@ class DeadCodeAnalyzer
     {
         // if class / namespace is in App directory: it is already chec because this->checkfiles only store none other than app directory files
         if (class_exists($namespace)) {
+
             $class = new \ReflectionClass($namespace);
             $className = $class->getShortName();
             $flag = $thisClass = $parentClassCheck = 0;
@@ -427,6 +428,7 @@ class DeadCodeAnalyzer
                 if ($tokens[$t] == "::" && $tokens[$t - 1] != "self"
                     && $tokens[$t + 1] instanceof \PHP_Token_STRING
                     && $tokens[$t + 2] == "(") {
+
                     // here classname needs
                     $nameSpace = ($tokens[$t - 1] == 'static') ? $namespace : "";
                     if ($nameSpace == "") {
@@ -532,7 +534,7 @@ class DeadCodeAnalyzer
 
     function totalCounter()
     {
-        $counter = $deadMethodCounter = 0;
+        $counter = 0; $deadMethodCounter = 0;
         foreach ($this->checkFiles["classes"] as $class) {
             foreach ($class["methods"] as $mm) {
                 $counter++;
@@ -552,7 +554,7 @@ class DeadCodeAnalyzer
     {
         $output = "";
         $resultText = "Result::" . NL;
-        $totalMethodText = "Total class: ";
+//        $totalMethodText = "Total class: ";
         $totalMethodText = "Total method:: ";
         $totalDeadMethodText = "Total dead method : ";
         $deadMethodWeightText = "Dead method weight: ";

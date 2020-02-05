@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="238ac3c3-2610-4217-aa86-7feba51d3f71" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/Helpers/DeadCode/DeadCodeAnalyzer.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Helpers/DeadCode/DeadCodeAnalyzer.php" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -21,8 +20,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/Helpers/DeadCode/DeadCodeAnalyzer.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="207">
-              <caret line="557" column="45" lean-forward="true" selection-start-line="557" selection-start-column="45" selection-end-line="557" selection-end-column="45" />
+            <state relative-caret-position="230">
+              <caret line="119" column="53" selection-start-line="119" selection-start-column="53" selection-end-line="119" selection-end-column="53" />
             </state>
           </provider>
         </entry>
@@ -56,6 +55,7 @@
       <find>echo</find>
       <find>//</find>
       <find>new object</find>
+      <find>head</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -180,12 +180,12 @@
       <workItem from="1579825046823" duration="718000" />
       <workItem from="1580340902338" duration="1404000" />
       <workItem from="1580343324575" duration="3374000" />
-      <workItem from="1580862623339" duration="258000" />
+      <workItem from="1580862623339" duration="628000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="7641000" />
+    <option name="totallyTimeSpent" value="8011000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="32" width="1616" height="876" extended-state="6" />
@@ -219,8 +219,8 @@
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/app/Helpers/DeadCode/DeadCodeAnalyzer.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="207">
-          <caret line="557" column="45" lean-forward="true" selection-start-line="557" selection-start-column="45" selection-end-line="557" selection-end-column="45" />
+        <state relative-caret-position="230">
+          <caret line="119" column="53" selection-start-line="119" selection-start-column="53" selection-end-line="119" selection-end-column="53" />
         </state>
       </provider>
     </entry>

@@ -33,6 +33,7 @@ class DeadCodeAnalyzer
     protected $dirBlackListsToAnalyze = array('Kernel', 'Exceptions', 'Middleware', 'Providers', 'Resources', 'DeadCodeAnalyzer');
 //    protected $fileBlackLists = array('Helpers', 'Kernel', 'LdcdController', 'DeadCodeAnalyzer');
 
+
     /**
      * Initiate Check File keys
      */
@@ -115,6 +116,7 @@ class DeadCodeAnalyzer
                     $position++;
                     if ($tokens[$position] == ')' || $tokens[$position] == '__construct')
                         break;
+
                     if ($tokens[$position] == '(' ) {
                         $functions[] = [
                             'name' => $tokens[$position - 1],

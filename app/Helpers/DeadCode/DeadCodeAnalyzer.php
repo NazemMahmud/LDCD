@@ -110,7 +110,8 @@ class DeadCodeAnalyzer
             if ($tokens[$tok] == "__construct") {
                 continue;
             }
-            if ($tokens[$tok] == "function" && ($tokens[$tok+2] instanceof \PHP_Token_STRING || $tokens[$tok+1] != '(')) {
+            if ($tokens[$tok] == "function" && $tokens[$tok+1] instanceof \PHP_Token_WHITESPACE &&
+                $tokens[$tok+2] instanceof \PHP_Token_STRING ) {
                 $position = $tok;
                 while ($position) {
                     $position++;

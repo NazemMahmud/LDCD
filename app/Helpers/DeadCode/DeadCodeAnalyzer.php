@@ -114,7 +114,7 @@ class DeadCodeAnalyzer
             }
             if ($tokens[$tok] == "function" &&
                 $tokens[$tok + 1] instanceof \PHP_Token_WHITESPACE &&
-                $tokens[$tok + 3]=='(') {
+                $tokens[$tok + 2] instanceof \PHP_Token_STRING) {
                 $position = $tok;
                 while ($position) {
                     $position++;
@@ -407,6 +407,11 @@ class DeadCodeAnalyzer
 
     function ormChecker($classArrayToCheck, $tokens, $startPosition)
     {
+//        $this->classesToCheck [] = [
+//            "namespace" => $c["namespace"],
+//            "className" => $c["className"],
+//            "object" => $tokens[$variable]
+//        ];
         $className = $objectString = "";
         $index = $startPosition;
         $paramFlag = $classFlag = $indexCounter = 0;
@@ -444,8 +449,11 @@ class DeadCodeAnalyzer
             $tokens[$index + 4] == ')' && $tokens[$index + 5] == '->'
         ) {
             $objectCheck = $tokens[$index];
+
             foreach ($this->classesToCheck as &$classes) {
                 if (strcmp($classes["object"], $objectCheck) == 0) {
+                    echo "Names: ".$classes["className"].EOL;
+                    echo "Methh: ".$tokens[$index].'->'.$tokens[$index+2].EOL;
                     $this->updateMethodFlag($classes["className"], $classes["namespace"], $tokens[$index + 2]);
                     break;
                 }
@@ -466,6 +474,18 @@ class DeadCodeAnalyzer
         }
     }
 
+    /*public function startPosition($index, $tokens){
+        $count = $flag = 0;
+        while (!($tokens[$index] instanceof \PHP_Token_VARIABLE)) {
+            $index--;
+            $count++;
+            if($count == 5 ){
+                $flag++; break;
+            }
+        }
+
+        return $index;
+    }*/
     /**
      * @param $files
      * @throws \ReflectionException
@@ -539,6 +559,31 @@ class DeadCodeAnalyzer
                     if ($nameSpace != "") {
                         $this->updateMethodFlag('', $nameSpace, $tokens[$t + 1]);
                     }
+                }
+
+                // $variable = ClassName::create($request->all());
+                // $variable->method()->sync($request->input('services', []));
+                // && $tokens[$t + 1] instanceof \PHP_Token_VARIABLE
+                if ($tokens[$t] == "::" && $tokens[$t - 1] instanceof \PHP_Token_STRING
+                    && ( $tokens[$t - 2] == '=' ||
+                        ($tokens[$t - 2] instanceof \PHP_Token_WHITESPACE && $tokens[$t - 3] == '=')
+                    )) {
+//                    $start = $this->startPosition($t,$tokens);
+                    echo 'NM: '.$namespace.EOL;
+                    echo 'Class: '.$tokens[$t - 1].EOL;
+                    $start = $t;
+                    while ($start && !($tokens[$start] instanceof \PHP_Token_VARIABLE)) {
+                        $start--;
+                    }
+//                    echo 'ObjectVariable: '.$tokens[$start].EOL;
+                    $c = $this->getRealClassName($tokens[$t-1]); //  If any class namespace is replaces with as keyword, we can get the real class name and namespace from here
+//                    echo 'First Name: '.$namespace.EOL;
+                    echo 'First: '.$c["namespace"].EOL;
+                    $this->classesToCheck [] = [
+                        "namespace" => $c["namespace"],
+                        "className" => $c["className"],
+                        "object" => $tokens[$start]
+                    ];
                 }
 
                 // new object create check
